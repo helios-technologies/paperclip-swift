@@ -21,18 +21,18 @@ module Paperclip
 
       def flush_writes
         @queued_for_write.each do |style, file|
-          unless exists?(style)
-            obj = swift_client.create_object(path(style), {:content_type => instance_read(:content_type)}, file)
-          else
-            raise FileExists, "file '#{style}' already exists in Swift"
-          end
+          log("saving #{path(style)}")
+          swift_client.create_object(path(style), {:content_type => instance_read(:content_type)}, file)
         end
         after_flush_writes
         @queued_for_write = {}
       end
 
       def flush_deletes
-        @queued_for_delete.each do |path|
+        # do not delete what should be overwritten
+        skip = @queued_for_write.keys.map {|i| path(i)}
+        (@queued_for_delete - skip).each do |path|
+          log("deleting #{path}")
           swift_client.delete_object(path)
         end
         @queued_for_delete = []
